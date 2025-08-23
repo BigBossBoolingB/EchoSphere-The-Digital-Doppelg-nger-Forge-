@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 
 import boto3
+from echosystem.aiproxy.client import AIClient
 from google.protobuf.json_format import MessageToDict, Parse
 from pymongo import MongoClient
 
@@ -27,21 +28,6 @@ def get_db_client():
     return MongoClient(MONGO_URI)
 
 
-def analyze_text(text: str) -> persona_pb2.AnalysisFeatures:
-    # (This function remains the same)
-    logger.info(f"Analyzing text: '{text[:30]}...'")
-    words = text.lower().split()
-    cleaned_words = [word.strip(".,!?;") for word in words]
-    keywords = list(set([word for word in cleaned_words if len(word) >= 4]))
-    sentiment = "positive" if "good" in words or "great" in words else "neutral"
-
-    analysis = persona_pb2.AnalysisFeatures(
-        sentiment=sentiment, keywords=keywords, word_count=len(words)
-    )
-    logger.info(f"Analysis complete: {analysis.sentiment}")
-    return analysis
-
-
 def save_analysis(
     db_client, request_id: str, analysis_proto: persona_pb2.AnalysisFeatures
 ):
@@ -51,7 +37,6 @@ def save_analysis(
 
     analysis_dict = MessageToDict(analysis_proto)
 
-    # Create the initial document structure with a history event
     document_to_insert = {
         "requestId": request_id,
         "status": "analysis_complete",
@@ -75,22 +60,21 @@ def save_analysis(
     return insert_result.inserted_id
 
 
-def process_message(message: dict, s3_client, db_client):
+def process_message(message: dict, s3_client, db_client, ai_client):
     """Processes a single SQS message."""
     logger.info(f"Processing message ID: {message['MessageId']}")
     try:
         event_json = message["Body"]
         ingestion_event = Parse(event_json, persona_pb2.IngestionEvent())
 
-        # Fetch and parse data from S3
         s3_response = s3_client.get_object(
             Bucket=ingestion_event.s3_bucket, Key=ingestion_event.s3_key
         )
         ingestion_request = persona_pb2.IngestionRequest()
         ingestion_request.ParseFromString(s3_response["Body"].read())
 
-        # Perform analysis
-        analysis_result = analyze_text(ingestion_request.text)
+        # Perform analysis using the AI Proxy
+        analysis_result = ai_client.get_text_analysis(ingestion_request.text)
 
         # Save to DB
         inserted_id = save_analysis(
@@ -104,17 +88,19 @@ def process_message(message: dict, s3_client, db_client):
         return None
 
 
-def poll_and_process(db_client=None) -> list:
+def poll_and_process(db_client=None, ai_client=None) -> list:
     """
     Polls SQS, processes messages, saves results to DB, and returns a list of
-    inserted DB IDs. Accepts an optional db_client for testing purposes.
+    inserted DB IDs. Accepts optional clients for testing purposes.
     """
     s3_client = boto3.client("s3", region_name=AWS_REGION)
     sqs_client = boto3.client("sqs", region_name=AWS_REGION)
 
-    # Get a db client if one isn't provided
     if db_client is None:
         db_client = get_db_client()
+
+    if ai_client is None:
+        ai_client = AIClient()
 
     logger.info(f"Starting to poll SQS queue: {SQS_QUEUE_URL}")
 
@@ -126,7 +112,7 @@ def poll_and_process(db_client=None) -> list:
     if "Messages" in response:
         logger.info(f"Found {len(response['Messages'])} messages to process.")
         for message in response["Messages"]:
-            result_id = process_message(message, s3_client, db_client)
+            result_id = process_message(message, s3_client, db_client, ai_client)
             if result_id:
                 inserted_ids.append(result_id)
 
@@ -138,7 +124,7 @@ def poll_and_process(db_client=None) -> list:
     else:
         logger.info("No messages in queue.")
 
-    db_client.close()  # Close the client connection
+    db_client.close()
     return inserted_ids
 
 
