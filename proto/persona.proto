@@ -14,6 +14,11 @@ message IngestionEvent {
   string s3_key = 3;
 }
 
+// Message sent to SQS to trigger retraining
+message RefinementEvent {
+  string request_id = 1;
+}
+
 message AnalysisFeatures {
   string sentiment = 1;
   repeated string keywords = 2;

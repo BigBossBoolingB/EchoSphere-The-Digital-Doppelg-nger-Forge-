@@ -22,6 +22,12 @@ class IngestionEvent(_message.Message):
     s3_key: str
     def __init__(self, request_id: _Optional[str] = ..., s3_bucket: _Optional[str] = ..., s3_key: _Optional[str] = ...) -> None: ...
 
+class RefinementEvent(_message.Message):
+    __slots__ = ("request_id",)
+    REQUEST_ID_FIELD_NUMBER: _ClassVar[int]
+    request_id: str
+    def __init__(self, request_id: _Optional[str] = ...) -> None: ...
+
 class AnalysisFeatures(_message.Message):
     __slots__ = ("sentiment", "keywords", "word_count")
     SENTIMENT_FIELD_NUMBER: _ClassVar[int]
