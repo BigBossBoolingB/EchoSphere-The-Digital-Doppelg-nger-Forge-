@@ -1,9 +1,11 @@
-import pytest
 import os
+
 import boto3
-from moto import mock_aws
 import mongomock
+import pytest
 from google.protobuf.json_format import MessageToJson
+from moto import mock_aws
+
 import persona_pb2
 
 # Test Constants
@@ -11,6 +13,7 @@ TEST_AWS_REGION = "us-east-1"
 TEST_MONGO_DB_NAME = "test-trainer-db"
 REFINEMENT_QUEUE_NAME = "test-refinement-queue-trainer"
 SAMPLE_REQUEST_ID = "test-request-trainer-123"
+
 
 @pytest.fixture
 def aws_credentials():
@@ -20,10 +23,12 @@ def aws_credentials():
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
     os.environ["AWS_SESSION_TOKEN"] = "testing"
 
+
 @pytest.fixture
 def mock_db_client():
     """Fixture to create a mongomock client instance."""
     return mongomock.MongoClient()
+
 
 def test_trainer_pipeline(aws_credentials, mock_db_client):
     # 1. Set up mock environment and resources
@@ -45,20 +50,20 @@ def test_trainer_pipeline(aws_credentials, mock_db_client):
             "status": "refined",
             "sentiment": "positive",
             "keywords": ["approved"],
-            "feedback": {"notes": "good"}
+            "feedback": {"notes": "good"},
         }
         collection.insert_one(refined_doc)
 
         # 3. Send a refinement event to SQS
         refinement_event = persona_pb2.RefinementEvent(request_id=SAMPLE_REQUEST_ID)
         sqs.send_message(
-            QueueUrl=queue_url,
-            MessageBody=MessageToJson(refinement_event)
+            QueueUrl=queue_url, MessageBody=MessageToJson(refinement_event)
         )
 
         # Act
         # 4. Run the trainer processor, injecting the mock DB client
         from echosystem.trainer import main as trainer_main
+
         trainer_main.poll_and_process(db_client=mock_db_client)
 
         # Assert

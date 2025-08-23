@@ -9,34 +9,30 @@ from google.protobuf import descriptor_pool as _descriptor_pool
 from google.protobuf import runtime_version as _runtime_version
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf.internal import builder as _builder
+
 _runtime_version.ValidateProtobufRuntimeVersion(
-    _runtime_version.Domain.PUBLIC,
-    6,
-    31,
-    1,
-    '',
-    'persona.proto'
+    _runtime_version.Domain.PUBLIC, 6, 31, 1, "", "persona.proto"
 )
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
 
 
-
-
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rpersona.proto\x12\x12\x65\x63hosystem.persona\" \n\x10IngestionRequest\x12\x0c\n\x04text\x18\x01 \x01(\t\"G\n\x0eIngestionEvent\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x11\n\ts3_bucket\x18\x02 \x01(\t\x12\x0e\n\x06s3_key\x18\x03 \x01(\t\"%\n\x0fRefinementEvent\x12\x12\n\nrequest_id\x18\x01 \x01(\t\"K\n\x10\x41nalysisFeatures\x12\x11\n\tsentiment\x18\x01 \x01(\t\x12\x10\n\x08keywords\x18\x02 \x03(\t\x12\x12\n\nword_count\x18\x03 \x01(\x05\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
+    b'\n\rpersona.proto\x12\x12\x65\x63hosystem.persona" \n\x10IngestionRequest\x12\x0c\n\x04text\x18\x01 \x01(\t"G\n\x0eIngestionEvent\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x11\n\ts3_bucket\x18\x02 \x01(\t\x12\x0e\n\x06s3_key\x18\x03 \x01(\t"%\n\x0fRefinementEvent\x12\x12\n\nrequest_id\x18\x01 \x01(\t"K\n\x10\x41nalysisFeatures\x12\x11\n\tsentiment\x18\x01 \x01(\t\x12\x10\n\x08keywords\x18\x02 \x03(\t\x12\x12\n\nword_count\x18\x03 \x01(\x05\x62\x06proto3'
+)
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
-_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'persona_pb2', _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "persona_pb2", _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
-  DESCRIPTOR._loaded_options = None
-  _globals['_INGESTIONREQUEST']._serialized_start=37
-  _globals['_INGESTIONREQUEST']._serialized_end=69
-  _globals['_INGESTIONEVENT']._serialized_start=71
-  _globals['_INGESTIONEVENT']._serialized_end=142
-  _globals['_REFINEMENTEVENT']._serialized_start=144
-  _globals['_REFINEMENTEVENT']._serialized_end=181
-  _globals['_ANALYSISFEATURES']._serialized_start=183
-  _globals['_ANALYSISFEATURES']._serialized_end=258
+    DESCRIPTOR._loaded_options = None
+    _globals["_INGESTIONREQUEST"]._serialized_start = 37
+    _globals["_INGESTIONREQUEST"]._serialized_end = 69
+    _globals["_INGESTIONEVENT"]._serialized_start = 71
+    _globals["_INGESTIONEVENT"]._serialized_end = 142
+    _globals["_REFINEMENTEVENT"]._serialized_start = 144
+    _globals["_REFINEMENTEVENT"]._serialized_end = 181
+    _globals["_ANALYSISFEATURES"]._serialized_start = 183
+    _globals["_ANALYSISFEATURES"]._serialized_end = 258
 # @@protoc_insertion_point(module_scope)

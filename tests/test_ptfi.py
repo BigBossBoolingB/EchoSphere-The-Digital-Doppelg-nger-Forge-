@@ -1,13 +1,13 @@
+import os
+
+import boto3
+import mongomock
 import pytest
 from fastapi.testclient import TestClient
-import mongomock
-from unittest.mock import patch
-from bson import ObjectId
-import os
-import boto3
-from moto import mock_aws
-import persona_pb2
 from google.protobuf.json_format import Parse
+from moto import mock_aws
+
+import persona_pb2
 
 # --- Test Constants ---
 TEST_AWS_REGION = "us-east-1"
@@ -18,10 +18,11 @@ SAMPLE_DOC = {
     "requestId": SAMPLE_REQUEST_ID,
     "sentiment": "neutral",
     "keywords": ["sample", "data"],
-    "wordCount": 3
+    "wordCount": 3,
 }
 
 # --- Fixtures ---
+
 
 @pytest.fixture
 def aws_credentials():
@@ -31,10 +32,12 @@ def aws_credentials():
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
     os.environ["AWS_SESSION_TOKEN"] = "testing"
 
+
 @pytest.fixture
 def mock_db_client():
     """Fixture to create a mongomock client instance."""
     return mongomock.MongoClient().db
+
 
 @pytest.fixture
 def client(aws_credentials, mock_db_client):
@@ -61,11 +64,14 @@ def client(aws_credentials, mock_db_client):
         del os.environ["REFINEMENT_SQS_QUEUE_URL"]
         del os.environ["MONGO_DB_NAME"]
 
+
 # --- Test Cases ---
 
+
 def test_get_analysis_not_found(client):
-    response = client.get(f"/analysis/non-existent-id")
+    response = client.get("/analysis/non-existent-id")
     assert response.status_code == 404
+
 
 def test_get_analysis_success(client, mock_db_client):
     inserted = mock_db_client.persona_analysis.insert_one(SAMPLE_DOC.copy())
@@ -75,29 +81,38 @@ def test_get_analysis_success(client, mock_db_client):
     assert response_data["requestId"] == SAMPLE_REQUEST_ID
     assert response_data["_id"] == str(inserted.inserted_id)
 
+
 def test_refine_analysis_not_found(client):
     refinement_payload = {"approved_keywords": [], "feedback_notes": ""}
-    response = client.post(f"/analysis/non-existent-id/refine", json=refinement_payload)
+    response = client.post("/analysis/non-existent-id/refine", json=refinement_payload)
     assert response.status_code == 404
+
 
 def test_refine_analysis_success(client, mock_db_client):
     # Arrange
     mock_db_client.persona_analysis.insert_one(SAMPLE_DOC.copy())
     refinement_payload = {
         "approved_keywords": ["sample", "data"],
-        "feedback_notes": "This analysis is approved."
+        "feedback_notes": "This analysis is approved.",
     }
 
     # Act
-    response = client.post(f"/analysis/{SAMPLE_REQUEST_ID}/refine", json=refinement_payload)
+    response = client.post(
+        f"/analysis/{SAMPLE_REQUEST_ID}/refine", json=refinement_payload
+    )
 
     # Assert API response
     assert response.status_code == 200
     assert response.json()["status"] == "success"
 
     # Assert DB state
-    updated_doc = mock_db_client.persona_analysis.find_one({"requestId": SAMPLE_REQUEST_ID})
-    assert updated_doc["feedback"]["feedback_notes"] == refinement_payload["feedback_notes"]
+    updated_doc = mock_db_client.persona_analysis.find_one(
+        {"requestId": SAMPLE_REQUEST_ID}
+    )
+    assert (
+        updated_doc["feedback"]["feedback_notes"]
+        == refinement_payload["feedback_notes"]
+    )
     assert updated_doc["status"] == "refined"
 
     # Assert SQS event

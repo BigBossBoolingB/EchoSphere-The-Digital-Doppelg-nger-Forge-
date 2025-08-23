@@ -1,8 +1,10 @@
-from google.protobuf.internal import containers as _containers
+from collections.abc import Iterable as _Iterable
+from typing import ClassVar as _ClassVar
+from typing import Optional as _Optional
+
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from collections.abc import Iterable as _Iterable
-from typing import ClassVar as _ClassVar, Optional as _Optional
+from google.protobuf.internal import containers as _containers
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -20,7 +22,12 @@ class IngestionEvent(_message.Message):
     request_id: str
     s3_bucket: str
     s3_key: str
-    def __init__(self, request_id: _Optional[str] = ..., s3_bucket: _Optional[str] = ..., s3_key: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        request_id: _Optional[str] = ...,
+        s3_bucket: _Optional[str] = ...,
+        s3_key: _Optional[str] = ...,
+    ) -> None: ...
 
 class RefinementEvent(_message.Message):
     __slots__ = ("request_id",)
@@ -36,4 +43,9 @@ class AnalysisFeatures(_message.Message):
     sentiment: str
     keywords: _containers.RepeatedScalarFieldContainer[str]
     word_count: int
-    def __init__(self, sentiment: _Optional[str] = ..., keywords: _Optional[_Iterable[str]] = ..., word_count: _Optional[int] = ...) -> None: ...
+    def __init__(
+        self,
+        sentiment: _Optional[str] = ...,
+        keywords: _Optional[_Iterable[str]] = ...,
+        word_count: _Optional[int] = ...,
+    ) -> None: ...

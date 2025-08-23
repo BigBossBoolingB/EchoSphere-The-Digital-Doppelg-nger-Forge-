@@ -1,17 +1,18 @@
 import os
-import json
+
 import boto3
-from moto import mock_aws
-import pytest
-import persona_pb2
-from google.protobuf.json_format import MessageToJson
 import mongomock
+from google.protobuf.json_format import MessageToJson
+from moto import mock_aws
+
+import persona_pb2
 
 # Test constants
 TEST_AWS_REGION = "us-east-1"
 TEST_S3_BUCKET = "test-maipp-bucket"
 TEST_SQS_QUEUE = "test-maipp-queue"
 TEST_MONGO_DB_NAME = "test-echosphere-db"
+
 
 @mock_aws
 def test_maipp_pipeline():
@@ -37,14 +38,25 @@ def test_maipp_pipeline():
     # 3. Create test data and messages
     request_id = "test-request-123"
     s3_key = f"ingestion/{request_id}.protobuf"
-    ingestion_request_proto = persona_pb2.IngestionRequest(text="This is a great test for the database.")
-    s3_client.put_object(Bucket=TEST_S3_BUCKET, Key=s3_key, Body=ingestion_request_proto.SerializeToString())
+    ingestion_request_proto = persona_pb2.IngestionRequest(
+        text="This is a great test for the database."
+    )
+    s3_client.put_object(
+        Bucket=TEST_S3_BUCKET,
+        Key=s3_key,
+        Body=ingestion_request_proto.SerializeToString(),
+    )
 
-    ingestion_event_proto = persona_pb2.IngestionEvent(request_id=request_id, s3_bucket=TEST_S3_BUCKET, s3_key=s3_key)
-    sqs_client.send_message(QueueUrl=queue_url, MessageBody=MessageToJson(ingestion_event_proto))
+    ingestion_event_proto = persona_pb2.IngestionEvent(
+        request_id=request_id, s3_bucket=TEST_S3_BUCKET, s3_key=s3_key
+    )
+    sqs_client.send_message(
+        QueueUrl=queue_url, MessageBody=MessageToJson(ingestion_event_proto)
+    )
 
     # 4. Run the MAIPP processor, injecting the mock DB client
     from echosystem.maipp import main as maipp_main
+
     inserted_ids = maipp_main.poll_and_process(db_client=mock_db_client)
 
     # 5. Assertions on the database
@@ -60,7 +72,7 @@ def test_maipp_pipeline():
     assert saved_doc["sentiment"] == "positive"
     assert "great" in saved_doc["keywords"]
     assert "database" in saved_doc["keywords"]
-    assert saved_doc["wordCount"] == 8 # Note: MessageToDict converts to camelCase
+    assert saved_doc["wordCount"] == 8  # Note: MessageToDict converts to camelCase
 
     # 6. Check if the SQS message was deleted
     response = sqs_client.receive_message(QueueUrl=queue_url, WaitTimeSeconds=2)

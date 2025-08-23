@@ -1,0 +1,21 @@
+[tool.black]
+line-length = 88
+
+[tool.ruff]
+line-length = 88
+exclude = [
+    "persona_pb2.py",
+    "persona_pb2.pyi",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "B008", # Ignore FastAPI Depends style
+]

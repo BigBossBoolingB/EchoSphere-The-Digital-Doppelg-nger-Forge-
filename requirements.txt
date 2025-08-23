@@ -8,3 +8,5 @@ grpcio-tools
 protobuf
 pymongo
 mongomock
+black
+ruff

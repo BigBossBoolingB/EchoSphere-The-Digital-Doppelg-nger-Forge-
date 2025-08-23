@@ -1,10 +1,11 @@
 import os
-import json
+
 import boto3
-from moto import mock_aws
 from fastapi.testclient import TestClient
-import persona_pb2
 from google.protobuf.json_format import Parse
+from moto import mock_aws
+
+import persona_pb2
 
 # Test constants
 TEST_AWS_REGION = "us-east-1"
@@ -33,6 +34,7 @@ def test_ingest_data_with_aws_services():
 
     # 3. Import the app and create the client AFTER mocks are set up
     from echosystem.udim.main import app
+
     client = TestClient(app)
 
     # 4. Prepare and call the endpoint
@@ -46,14 +48,16 @@ def test_ingest_data_with_aws_services():
     # 5. Verify S3 upload (as Protobuf)
     s3_key = response_data["s3_key"]
     s3_object = s3_client.get_object(Bucket=TEST_S3_BUCKET, Key=s3_key)
-    assert s3_object['ContentType'] == 'application/protobuf'
+    assert s3_object["ContentType"] == "application/protobuf"
 
     ingestion_request_proto = persona_pb2.IngestionRequest()
     ingestion_request_proto.ParseFromString(s3_object["Body"].read())
     assert ingestion_request_proto.text == test_payload["text"]
 
     # 6. Verify SQS message (as JSON representation of Protobuf)
-    messages = sqs_client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=1)["Messages"]
+    messages = sqs_client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=1)[
+        "Messages"
+    ]
     assert len(messages) == 1
 
     ingestion_event_proto = Parse(messages[0]["Body"], persona_pb2.IngestionEvent())
