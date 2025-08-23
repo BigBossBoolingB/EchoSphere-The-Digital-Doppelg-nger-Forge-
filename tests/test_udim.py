@@ -1,12 +1,60 @@
+import os
+import json
+import boto3
+from moto import mock_aws
 from fastapi.testclient import TestClient
-from echosystem.udim.main import app
 
-client = TestClient(app)
+# It's good practice to define test constants
+TEST_AWS_REGION = "us-east-1"
+TEST_S3_BUCKET = "test-echosphere-bucket"
+TEST_SQS_QUEUE = "test-echosphere-queue"
 
-def test_ingest_data():
-    test_payload = {"text": "This is a test ingestion."}
+
+@mock_aws
+def test_ingest_data_with_aws_services():
+    # 1. Set up mock environment variables BEFORE importing the app
+    os.environ["AWS_ACCESS_KEY_ID"] = "testing"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+    os.environ["AWS_SECURITY_TOKEN"] = "testing"
+    os.environ["AWS_SESSION_TOKEN"] = "testing"
+    os.environ["AWS_REGION"] = TEST_AWS_REGION
+    os.environ["S3_BUCKET"] = TEST_S3_BUCKET
+
+    # 2. Set up mock AWS resources
+    s3_client = boto3.client("s3", region_name=TEST_AWS_REGION)
+    sqs_client = boto3.client("sqs", region_name=TEST_AWS_REGION)
+
+    s3_client.create_bucket(Bucket=TEST_S3_BUCKET)
+    queue_response = sqs_client.create_queue(QueueName=TEST_SQS_QUEUE)
+    queue_url = queue_response["QueueUrl"]
+    os.environ["SQS_QUEUE_URL"] = queue_url
+
+    # 3. Import the app and create the client AFTER mocks are set up
+    from echosystem.udim.main import app
+    client = TestClient(app)
+
+    # 4. Prepare and call the endpoint
+    test_payload = {"text": "This is a test ingestion for AWS."}
     response = client.post("/ingest", json=test_payload)
+
     assert response.status_code == 200
-    response_json = response.json()
-    assert response_json["status"] == "success"
-    assert response_json["data_received"] == test_payload
+    response_data = response.json()
+    assert response_data["status"] == "success"
+
+    # 5. Verify S3 upload
+    s3_key = response_data["s3_key"]
+    s3_object = s3_client.get_object(Bucket=TEST_S3_BUCKET, Key=s3_key)
+    s3_body = json.loads(s3_object["Body"].read().decode("utf-8"))
+    assert s3_body["text"] == test_payload["text"]
+
+    # 6. Verify SQS message
+    messages = sqs_client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=1)["Messages"]
+    assert len(messages) == 1
+    message_body = json.loads(messages[0]["Body"])
+    assert message_body["s3_bucket"] == TEST_S3_BUCKET
+    assert message_body["s3_key"] == s3_key
+
+    # 7. Clean up environment variables that my test set
+    del os.environ["AWS_REGION"]
+    del os.environ["S3_BUCKET"]
+    del os.environ["SQS_QUEUE_URL"]

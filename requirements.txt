@@ -2,3 +2,5 @@ fastapi
 uvicorn[standard]
 pytest
 httpx
+boto3
+moto[s3,sqs]
