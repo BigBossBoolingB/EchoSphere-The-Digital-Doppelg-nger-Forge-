@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from datetime import datetime, timezone
 
 import boto3
 from google.protobuf.json_format import Parse
@@ -58,9 +59,17 @@ def process_refinement_event(message: dict, db_client):
         )
         time.sleep(1)  # Simulate work
 
-        # 4. Update the document status
+        # 4. Update the document status and add a history event
+        history_event = {
+            "eventType": "retraining_complete",
+            "timestamp": datetime.now(timezone.utc),
+        }
         collection.update_one(
-            {"_id": analysis_doc["_id"]}, {"$set": {"status": "retraining_complete"}}
+            {"_id": analysis_doc["_id"]},
+            {
+                "$set": {"status": "retraining_complete"},
+                "$push": {"history": history_event},
+            },
         )
         logger.info(
             f"Retraining complete for request_id: {request_id}. Status updated."

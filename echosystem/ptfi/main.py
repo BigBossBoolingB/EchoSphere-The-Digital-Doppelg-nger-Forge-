@@ -1,5 +1,6 @@
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 import boto3
@@ -109,9 +110,18 @@ async def refine_analysis(
     sqs_client=Depends(get_sqs_client),
 ):
     # 1. Update the document in the database
+    feedback_data = refinement.model_dump()
+    history_event = {
+        "eventType": "refinement",
+        "timestamp": datetime.now(timezone.utc),
+        "data": feedback_data,
+    }
     update_result = db.persona_analysis.update_one(
         {"requestId": request_id},
-        {"$set": {"feedback": refinement.model_dump(), "status": "refined"}},
+        {
+            "$set": {"feedback": feedback_data, "status": "refined"},
+            "$push": {"history": history_event},
+        },
     )
 
     if update_result.matched_count == 0:

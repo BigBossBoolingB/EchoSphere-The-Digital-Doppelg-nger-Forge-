@@ -4,7 +4,6 @@ import boto3
 import mongomock
 import pytest
 from google.protobuf.json_format import MessageToJson
-from moto import mock_aws
 
 import persona_pb2
 
@@ -31,9 +30,11 @@ def mock_db_client():
 
 
 def test_trainer_pipeline(aws_credentials, mock_db_client):
-    # 1. Set up mock environment and resources
+    # Arrange
+    from moto import mock_aws
+
     with mock_aws():
-        # SQS Setup
+        # 1. Set up mock environment and resources
         sqs = boto3.client("sqs", region_name=TEST_AWS_REGION)
         queue_url = sqs.create_queue(QueueName=REFINEMENT_QUEUE_NAME)["QueueUrl"]
         os.environ["REFINEMENT_SQS_QUEUE_URL"] = queue_url
@@ -48,9 +49,7 @@ def test_trainer_pipeline(aws_credentials, mock_db_client):
         refined_doc = {
             "requestId": SAMPLE_REQUEST_ID,
             "status": "refined",
-            "sentiment": "positive",
-            "keywords": ["approved"],
-            "feedback": {"notes": "good"},
+            "history": [{"eventType": "creation"}, {"eventType": "refinement"}],
         }
         collection.insert_one(refined_doc)
 
@@ -60,17 +59,18 @@ def test_trainer_pipeline(aws_credentials, mock_db_client):
             QueueUrl=queue_url, MessageBody=MessageToJson(refinement_event)
         )
 
-        # Act
-        # 4. Run the trainer processor, injecting the mock DB client
+        # Act: Import module here, after env vars are set
         from echosystem.trainer import main as trainer_main
-
         trainer_main.poll_and_process(db_client=mock_db_client)
 
         # Assert
-        # 5. Check that the document status was updated in the DB
+        # 5. Check that the document status and history were updated
         final_doc = collection.find_one({"requestId": SAMPLE_REQUEST_ID})
         assert final_doc is not None
         assert final_doc["status"] == "retraining_complete"
+        assert len(final_doc["history"]) == 3
+        assert final_doc["history"][-1]["eventType"] == "retraining_complete"
+        assert "timestamp" in final_doc["history"][-1]
 
         # 6. Check that the SQS message was deleted
         response = sqs.receive_message(QueueUrl=queue_url, WaitTimeSeconds=2)

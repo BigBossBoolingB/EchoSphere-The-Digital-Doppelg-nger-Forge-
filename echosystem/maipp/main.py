@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime, timezone
 
 import boto3
 from google.protobuf.json_format import MessageToDict, Parse
@@ -44,15 +45,27 @@ def analyze_text(text: str) -> persona_pb2.AnalysisFeatures:
 def save_analysis(
     db_client, request_id: str, analysis_proto: persona_pb2.AnalysisFeatures
 ):
-    """Saves the analysis result to the database."""
+    """Saves the analysis result to the database with an initial history event."""
     db = db_client[MONGO_DB_NAME]
     collection = db.persona_analysis
 
-    # Convert protobuf to a dictionary for MongoDB
     analysis_dict = MessageToDict(analysis_proto)
-    analysis_dict["requestId"] = request_id  # Add the request_id for tracking
 
-    insert_result = collection.insert_one(analysis_dict)
+    # Create the initial document structure with a history event
+    document_to_insert = {
+        "requestId": request_id,
+        "status": "analysis_complete",
+        "latest_analysis": analysis_dict,
+        "history": [
+            {
+                "eventType": "creation",
+                "timestamp": datetime.now(timezone.utc),
+                "data": analysis_dict,
+            }
+        ],
+    }
+
+    insert_result = collection.insert_one(document_to_insert)
     logger.info(
         (
             f"Saved analysis for request_id {request_id} to DB. "
