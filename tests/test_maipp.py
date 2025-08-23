@@ -3,6 +3,7 @@ import json
 import boto3
 from moto import mock_aws
 import pytest
+import persona_pb2
 
 # Test constants
 TEST_AWS_REGION = "us-east-1"
@@ -56,10 +57,11 @@ def test_maipp_pipeline():
     # 5. Assertions on the return value
     assert len(analysis_results) == 1
     result = analysis_results[0]
-    assert result["sentiment"] == "positive"
-    assert "great" in result["keywords"]
-    assert "test" in result["keywords"]
-    assert result["word_count"] == 5
+    assert isinstance(result, persona_pb2.AnalysisFeatures)
+    assert result.sentiment == "positive"
+    assert "great" in result.keywords
+    assert "test" in result.keywords
+    assert result.word_count == 5
 
     # 6. Check if the message was deleted
     response = sqs_client.receive_message(

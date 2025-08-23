@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package echosystem.persona;
+
+message AnalysisFeatures {
+  string sentiment = 1;
+  repeated string keywords = 2;
+  int32 word_count = 3;
+}

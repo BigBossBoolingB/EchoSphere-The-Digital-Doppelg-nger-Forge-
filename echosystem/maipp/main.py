@@ -3,6 +3,7 @@ import json
 import logging
 import boto3
 import time
+import persona_pb2
 
 # Get a logger instance for this module
 logger = logging.getLogger(__name__)
@@ -12,28 +13,27 @@ SQS_QUEUE_URL = os.environ.get("SQS_QUEUE_URL", "https://sqs.us-east-1.amazonaws
 AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
 S3_BUCKET = os.environ.get("S3_BUCKET") # Expect this to be set by the environment
 
-def analyze_text(text: str) -> dict:
+def analyze_text(text: str) -> persona_pb2.AnalysisFeatures:
     """
-    Simulates AI analysis of the given text.
+    Simulates AI analysis of the given text and returns an AnalysisFeatures protobuf message.
     """
     logger.info(f"Analyzing text: '{text[:30]}...'")
     words = text.lower().split()
-    # Clean words of common punctuation
     cleaned_words = [word.strip('.,!?;') for word in words]
     keywords = list(set([word for word in cleaned_words if len(word) >= 4]))
     sentiment = "positive" if "good" in words or "great" in words else "neutral"
 
-    analysis = {
-        "sentiment": sentiment,
-        "keywords": keywords[:5],
-        "word_count": len(words),
-    }
-    logger.info(f"Analysis complete: {analysis}")
+    analysis = persona_pb2.AnalysisFeatures(
+        sentiment=sentiment,
+        keywords=keywords,
+        word_count=len(words)
+    )
+    logger.info(f"Analysis complete: {analysis.sentiment}")
     return analysis
 
-def process_message(message: dict, s3_client) -> dict:
+def process_message(message: dict, s3_client) -> persona_pb2.AnalysisFeatures:
     """
-    Processes a single SQS message, returning the analysis result.
+    Processes a single SQS message, returning the analysis result as a protobuf message.
     """
     logger.info(f"Processing message ID: {message['MessageId']}")
     try:
@@ -48,7 +48,7 @@ def process_message(message: dict, s3_client) -> dict:
 
         analysis_result = analyze_text(text_to_analyze)
 
-        logger.info(f"PKG Updated for request_id {body['request_id']} with analysis: {analysis_result}")
+        logger.info(f"PKG Updated for request_id {body['request_id']} with analysis.")
 
         return analysis_result
 
@@ -56,9 +56,9 @@ def process_message(message: dict, s3_client) -> dict:
         logger.error(f"Error processing message {message['MessageId']}: {e}")
         return None
 
-def poll_and_process() -> list[dict]:
+def poll_and_process() -> list[persona_pb2.AnalysisFeatures]:
     """
-    Polls the SQS queue for messages, processes them, and returns a list of analysis results.
+    Polls the SQS queue for messages, processes them, and returns a list of AnalysisFeatures messages.
     """
     s3_client = boto3.client("s3", region_name=AWS_REGION)
     sqs_client = boto3.client("sqs", region_name=AWS_REGION)
@@ -100,4 +100,4 @@ if __name__ == "__main__":
     if results:
         logger.info(f"Successfully processed {len(results)} messages.")
         for res in results:
-            logger.info(f"Result: {res}")
+            logger.info(f"Result: {res.sentiment}, Keywords: {list(res.keywords)}")

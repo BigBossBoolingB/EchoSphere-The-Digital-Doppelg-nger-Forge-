@@ -4,3 +4,5 @@ pytest
 httpx
 boto3
 moto[s3,sqs]
+grpcio-tools
+protobuf
