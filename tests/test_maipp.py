@@ -4,6 +4,7 @@ import boto3
 from moto import mock_aws
 import pytest
 import persona_pb2
+from google.protobuf.json_format import MessageToJson
 
 # Test constants
 TEST_AWS_REGION = "us-east-1"
@@ -29,25 +30,27 @@ def test_maipp_pipeline():
     queue_url = queue_response["QueueUrl"]
     os.environ["SQS_QUEUE_URL"] = queue_url
 
-    # 3. Create test data and messages
+    # 3. Create test data and messages using Protobuf
     request_id = "test-request-123"
-    s3_key = f"ingestion/{request_id}.json"
-    s3_content = {"text": "This is a great test."}
+    s3_key = f"ingestion/{request_id}.protobuf"
 
+    # Create and serialize the S3 content (IngestionRequest)
+    ingestion_request_proto = persona_pb2.IngestionRequest(text="This is a great test for the protobuf pipeline.")
     s3_client.put_object(
         Bucket=TEST_S3_BUCKET,
         Key=s3_key,
-        Body=json.dumps(s3_content)
+        Body=ingestion_request_proto.SerializeToString()
     )
 
-    sqs_message_body = {
-        "request_id": request_id,
-        "s3_bucket": TEST_S3_BUCKET,
-        "s3_key": s3_key,
-    }
+    # Create and serialize the SQS message (IngestionEvent)
+    ingestion_event_proto = persona_pb2.IngestionEvent(
+        request_id=request_id,
+        s3_bucket=TEST_S3_BUCKET,
+        s3_key=s3_key,
+    )
     sqs_client.send_message(
         QueueUrl=queue_url,
-        MessageBody=json.dumps(sqs_message_body)
+        MessageBody=MessageToJson(ingestion_event_proto)
     )
 
     # 4. Run the MAIPP processor
@@ -61,7 +64,8 @@ def test_maipp_pipeline():
     assert result.sentiment == "positive"
     assert "great" in result.keywords
     assert "test" in result.keywords
-    assert result.word_count == 5
+    assert "pipeline" in result.keywords
+    assert result.word_count == 9
 
     # 6. Check if the message was deleted
     response = sqs_client.receive_message(

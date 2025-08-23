@@ -4,6 +4,7 @@ import logging
 import boto3
 import time
 import persona_pb2
+from google.protobuf.json_format import Parse
 
 # Get a logger instance for this module
 logger = logging.getLogger(__name__)
@@ -37,18 +38,24 @@ def process_message(message: dict, s3_client) -> persona_pb2.AnalysisFeatures:
     """
     logger.info(f"Processing message ID: {message['MessageId']}")
     try:
-        body = json.loads(message['Body'])
-        bucket_name = body['s3_bucket']
-        object_key = body['s3_key']
+        # 1. Parse the IngestionEvent from the SQS message body
+        event_json = message['Body']
+        ingestion_event = Parse(event_json, persona_pb2.IngestionEvent())
 
+        bucket_name = ingestion_event.s3_bucket
+        object_key = ingestion_event.s3_key
+
+        # 2. Fetch and parse the IngestionRequest from S3
         logger.info(f"Fetching s3://{bucket_name}/{object_key}")
         s3_response = s3_client.get_object(Bucket=bucket_name, Key=object_key)
-        ingestion_data = json.loads(s3_response['Body'].read().decode('utf-8'))
-        text_to_analyze = ingestion_data['text']
+        ingestion_request = persona_pb2.IngestionRequest()
+        ingestion_request.ParseFromString(s3_response['Body'].read())
+        text_to_analyze = ingestion_request.text
 
+        # 3. Perform AI analysis
         analysis_result = analyze_text(text_to_analyze)
 
-        logger.info(f"PKG Updated for request_id {body['request_id']} with analysis.")
+        logger.info(f"PKG Updated for request_id {ingestion_event.request_id} with analysis.")
 
         return analysis_result
 

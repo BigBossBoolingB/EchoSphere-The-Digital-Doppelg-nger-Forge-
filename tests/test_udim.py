@@ -3,8 +3,10 @@ import json
 import boto3
 from moto import mock_aws
 from fastapi.testclient import TestClient
+import persona_pb2
+from google.protobuf.json_format import Parse
 
-# It's good practice to define test constants
+# Test constants
 TEST_AWS_REGION = "us-east-1"
 TEST_S3_BUCKET = "test-echosphere-bucket"
 TEST_SQS_QUEUE = "test-echosphere-queue"
@@ -12,7 +14,7 @@ TEST_SQS_QUEUE = "test-echosphere-queue"
 
 @mock_aws
 def test_ingest_data_with_aws_services():
-    # 1. Set up mock environment variables BEFORE importing the app
+    # 1. Set up mock environment
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
@@ -34,27 +36,31 @@ def test_ingest_data_with_aws_services():
     client = TestClient(app)
 
     # 4. Prepare and call the endpoint
-    test_payload = {"text": "This is a test ingestion for AWS."}
+    test_payload = {"text": "This is a test ingestion for the full protobuf pipeline."}
     response = client.post("/ingest", json=test_payload)
 
     assert response.status_code == 200
     response_data = response.json()
     assert response_data["status"] == "success"
 
-    # 5. Verify S3 upload
+    # 5. Verify S3 upload (as Protobuf)
     s3_key = response_data["s3_key"]
     s3_object = s3_client.get_object(Bucket=TEST_S3_BUCKET, Key=s3_key)
-    s3_body = json.loads(s3_object["Body"].read().decode("utf-8"))
-    assert s3_body["text"] == test_payload["text"]
+    assert s3_object['ContentType'] == 'application/protobuf'
 
-    # 6. Verify SQS message
+    ingestion_request_proto = persona_pb2.IngestionRequest()
+    ingestion_request_proto.ParseFromString(s3_object["Body"].read())
+    assert ingestion_request_proto.text == test_payload["text"]
+
+    # 6. Verify SQS message (as JSON representation of Protobuf)
     messages = sqs_client.receive_message(QueueUrl=queue_url, MaxNumberOfMessages=1)["Messages"]
     assert len(messages) == 1
-    message_body = json.loads(messages[0]["Body"])
-    assert message_body["s3_bucket"] == TEST_S3_BUCKET
-    assert message_body["s3_key"] == s3_key
 
-    # 7. Clean up environment variables that my test set
+    ingestion_event_proto = Parse(messages[0]["Body"], persona_pb2.IngestionEvent())
+    assert ingestion_event_proto.s3_bucket == TEST_S3_BUCKET
+    assert ingestion_event_proto.s3_key == s3_key
+
+    # 7. Clean up environment variables
     del os.environ["AWS_REGION"]
     del os.environ["S3_BUCKET"]
     del os.environ["SQS_QUEUE_URL"]

@@ -2,6 +2,18 @@ syntax = "proto3";
 
 package echosystem.persona;
 
+// Message for the initial data ingestion via API
+message IngestionRequest {
+  string text = 1;
+}
+
+// Message sent to SQS to trigger processing
+message IngestionEvent {
+  string request_id = 1;
+  string s3_bucket = 2;
+  string s3_key = 3;
+}
+
 message AnalysisFeatures {
   string sentiment = 1;
   repeated string keywords = 2;
